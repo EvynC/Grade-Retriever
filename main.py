@@ -12,50 +12,46 @@ cookies = {
 data = {
     '__RequestVerificationToken': 'kaZkFuva-0ZX3nXwnbu2IAGi6ZA2PiZNSba3xGUm_rC2iZmXdQB4anDlGFwokBa9aWhFI1bJVATP2ONlcAxEE_vFdELRzDGLUGQD_PDqAik1',
     'Database': '10',
-    'LogOnDetails.UserName': input("Enter Username: "),
-    'LogOnDetails.Password': mp.askpass(prompt="Enter Password: ", mask="*"),
+    'LogOnDetails.UserName': '',
+    'LogOnDetails.Password': '',
 }
 
-def get_grades():
+def login(): # A method that creates a request and checks if it's successful.
 
+    data.update({'LogOnDetails.UserName': input('Enter Username: '), 'LogOnDetails.Password' : mp.askpass(prompt='Enter Password: ', mask='*')})
+    print("Authenticating...\n")
     with requests.Session() as session:
-        response = session.post(
-            'https://lis-hac.eschoolplus.powerschool.com/HomeAccess/Account/LogOn?ReturnUrl=%2fHomeAccess%2f', cookies=cookies, data=data)
+        r = session.post('https://lis-hac.eschoolplus.powerschool.com/HomeAccess/Account/LogOn?ReturnUrl=%2fHomeAccess%2f', cookies=cookies, data=data)
+    
+    if r.status_code == 200: 
+        soup = BeautifulSoup(r.text, "html.parser")
+        if soup.find("title").text == "Home View Summary":
+            return soup 
+        else: 
+            print('Failed, please check your password.\n')
+            login()
+    else: 
+        print('Unexpected error occurred\n')
 
-        soup = BeautifulSoup(response.text, "html.parser")
+def get_grades():
+        soup = login()
+            
+        for i in range(len(soup.findAll(id="courseName"))): # Checks Enrolled Classses
 
-        if response.status_code == 200 and soup.find("title").text == "Home View Summary":
-            # Checking how many classes you are enrolled in.
-            for i in range(len(soup.findAll(id="courseName"))):
-                # Removing any Duplicate Classes & Grades
-                if soup.findAll(id="average")[i].get_text() != "":
+            if soup.findAll(id="average")[i].get_text() != "": # Removing any Duplicate Classes & Grades
 
-                    if float(soup.findAll(id="average")[i].get_text()) > 60 and float(soup.findAll(id="average")[i].get_text()) != 100 and float(soup.findAll(id="average")[i].get_text()) < 90:
-                        # Making a dictionary of classes and grades (if the grade is not empty meaning its a duplicate)
-                        Classes_Grades[soup.findAll(id="courseName")[i].get_text()] = soup.findAll(
-                            id="average")[i].get_text() + " Do better."
+                Classes_Grades[soup.findAll(id="courseName")[i].get_text()] = soup.findAll(
+                    id="average")[i].get_text()
 
-                    elif float(soup.findAll(id="average")[i].get_text()) < 60:
-                        # Making a dictionary of classes and grades (if the grade is not empty meaning its a duplicate)
-                        Classes_Grades[soup.findAll(id="courseName")[i].get_text()] = soup.findAll(
-                            id="average")[i].get_text() + " Your a Failure."
-
-                    else:
-                        # Making a dictionary of classes and grades (if the grade is not empty meaning its a duplicate)
-                        Classes_Grades[soup.findAll(id="courseName")[i].get_text()] = soup.findAll(
-                            id="average")[i].get_text()
-
-                # if it's empty and it's not a duplicate (for beginning of cycles) then it will put in NA for the grades.
-                elif soup.findAll(id="courseName").count(i) == 1:
-                    Classes_Grades[soup.findAll(id="courseName")[
-                        i].get_text()] = "NA"
-        else:
-            print("Authentication Error, Please check your password and try again IDIOT.")
+            # if it's empty and it's not a duplicate (for beginning of cycles) then it will put in NA for the grades.
+            elif soup.findAll(id="courseName").count(i) == 1:
+                Classes_Grades[soup.findAll(id="courseName")[
+                    i].get_text()] = "NA"
 
 def main():
 
     get_grades()
-
+    
     for key in Classes_Grades.keys():
     # Prints out the class and the grade with comments
         print(f"{key} | {Classes_Grades[key]}")
